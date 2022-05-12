@@ -1,6 +1,8 @@
 #include <string>
 #include <iostream>
 #include <cstdio>
+#include <thread>
+#include <functional>
 #include <WinSock2.h>
 #include "serial/serial.h"
 
@@ -10,6 +12,8 @@ using std::cout;
 using std::cerr;
 using std::endl;
 using std::vector;
+using std::thread;
+
 
 
 
@@ -28,8 +32,64 @@ void enumerate_ports()
 	}
 }
 
+// thread function for reposting data from serial port to tcp client
+void tcp_repost(serial::Serial &serial_port, SOCKET &client_socket)
+{
+    char *buffer = new char[1024];
+    int bytes_read;
+    memset(buffer, 0, 1024);
 
-int main(int argc, char **argv)
+    while(1)
+    {
+        // read data from serial port
+        bytes_read = serial_port.read((uint8_t *)buffer, 1024);
+
+        if(bytes_read > 0)
+        {
+            // send data to tcp client
+            send(client_socket, buffer, bytes_read, 0);
+
+            // print data to console
+            cout.write(buffer, bytes_read);
+
+            // clear buffer
+            memset(buffer, 0, 1024);
+
+            // sleep for a bit
+            // std::this_thread::sleep_for(std::chrono::milliseconds(100));
+        }
+    }
+}
+
+// thread function for reposting data from tcp client to serial port
+void serial_repost(serial::Serial &serial_port, SOCKET &client_socket)
+{
+    char *buffer = new char[1024];
+    int bytes_read;
+
+    while(1)
+    {
+        // read data from tcp client
+        bytes_read = recv(client_socket, buffer, 1024, 0);
+
+        if(bytes_read > 0)
+        {
+            // send data to serial port
+            serial_port.write((uint8_t *)buffer, bytes_read);
+
+            // print data to console
+            cout.write(buffer, bytes_read);
+
+            // clear buffer
+            memset(buffer, 0, 1024);
+        }
+    }
+}
+
+
+
+
+int main()
 {
     cout << "tcp serial converter" << endl;
     cout << "=====================" << endl;
@@ -97,21 +157,24 @@ int main(int argc, char **argv)
         cerr << "accept failed" << endl;
         return 1;
     }  
-    cout << "connected\n" << endl;
+    cout << "connected" << endl;
+    cout << endl;
 
     /* forward data */
-    // read data from the serial port
-    string data;
-    cout << "reading data from serial port and forwarding to tcp socket..." << endl;
-    while(1)
-    {
-        data = my_serial.read(100);
-        if(data.length() > 0)
-        {
-            // send data to the client
-            send(client_sock, data.c_str(), data.length(), 0);
-            cout << data;
-        }
-    }
+    cout << "transfering data..." << endl;
+
+    // repost data from serial port to tcp client
+    thread serial_to_tcp(tcp_repost, std::ref(my_serial), std::ref(client_sock));
+
+    // repost data from tcp client to serial port
+    thread tcp_to_serial(serial_repost, std::ref(my_serial), std::ref(client_sock));
+
+    // wait for threads to finish
+    serial_to_tcp.join();
+    tcp_to_serial.join();
+
     return 0;
 }
+/*
+
+*/
