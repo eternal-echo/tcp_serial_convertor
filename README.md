@@ -20,15 +20,12 @@
 这里使用一块Linux开发板传输数据进行测试，也可以使用stm32、51或者arduino替换。不过我使用vspd虚拟串口进行测试好像有些问题，这个库没读出来，貌似必须用真实的串口进行测试。  
 
 配置好串口后，写命令行控制串口发送数据。
-
-![attachments/linux.png]
+![](attachments/linux.png)
 
 然后上位机接收到了数据,通过tcp转发给客户端了，客户端也显示接收到了数据。
-
-![attachments/repost_to_client.png]
+![](attachments/repost_to_client.png)
 
 再测试tcp客户端发送至串口。通过命令行控制串口接收数据，然后tcp发送一行数据，上位机显示已接收到，并通过串口转发给linux开发板，最终也在终端显示出串口接收到的数据。  
-
-![attachments/repost_to_serial.png]
+![](attachments/repost_to_serial.png)
 
 最后功能验证无误。
